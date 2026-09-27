@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  web:
+    image: nginx:alpine
+    container_name: web_app
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - webnet
+
+  diun:
+    image: crazymax/diun:latest
+    container_name: diun
+    restart: always
+    command: serve
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./diun-data:/data"
+    environment:
+      - TZ=Europe/Paris
+      - LOG_LEVEL=info
+      - LOG_JSON=false
+      - DIUN_WATCH_WORKERS=5
+      - DIUN_WATCH_SCHEDULE=0 */6 * * *
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
+    networks:
+      - webnet
+
+networks:
+  webnet:
+    driver: bridge

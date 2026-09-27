@@ -1,0 +1,17 @@
+# Infrastructure & Oracle Cloud Infrastructure
+hashicorp.terraform
+oracle.oci-vscode-toolkit
+
+# Git & Contrôle de version
+eamodio.gitlens
+mhutchie.git-graph
+
+# Markdown & Documentation
+shd10188.markdown-preview-enhanced
+davidanson.vscode-markdownlint
+
+# Fichiers de configuration
+redhat.vscode-yaml
+
+#AI
+continue.continue

@@ -1,0 +1,43 @@
+# === TERRAFORM & OCI ===
+# Caches d'initialisation (très lourds en fichiers/tokens)
+.terraform/
+.terraform.lock.hcl
+
+# Fichiers d'état local et sauvegardes (peuvent contenir des secrets ou des états volumineux)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+
+# Fichiers de variables sensibles (pour éviter d'envoyer des clés/passwords au LLM)
+*.auto.tfvars
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Clés d'API OCI, certificats et tokens
+*.pem
+*.key
+*.pub
+oci_api_key*.pem
+
+# === GIT & CONFIGURATIONS D'ÉDITEUR ===
+.git/
+.gitignore
+.vscode/
+.vscodium/
+.idea/
+
+# === DOCUMENTATION & RENDUS MARKDOWN ===
+# Masquer les exports/renders HTML ou PDF issus des previews Markdown
+*.html
+*.pdf
+.markdownlint*
+
+# === FICHIERS TEMPORAIRES & LOGS ===
+*.tmp
+*.log
+.DS_Store
