@@ -69,7 +69,7 @@ resource "oci_core_subnet" "public_subnet" {
   security_list_ids = [oci_core_security_list.public_sl.id]
 }
 
-# Security List
+# Security List Sécurisée (Principe du moindre privilège)
 resource "oci_core_security_list" "public_sl" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main_vcn.id
@@ -82,6 +82,7 @@ resource "oci_core_security_list" "public_sl" {
       min = 22
       max = 22
     }
+    description = "SSH Administration"
   }
 
   ingress_security_rules {
@@ -91,6 +92,7 @@ resource "oci_core_security_list" "public_sl" {
       min = 80
       max = 80
     }
+    description = "HTTP Web Traffic"
   }
 
   ingress_security_rules {
@@ -100,11 +102,13 @@ resource "oci_core_security_list" "public_sl" {
       min = 443
       max = 443
     }
+    description = "HTTPS Web Traffic"
   }
 
   egress_security_rules {
     protocol    = "all"
     destination = "0.0.0.0/0"
+    description = "Allow all outbound traffic for updates and dependencies"
   }
 }
 
@@ -138,10 +142,10 @@ resource "oci_core_instance" "web_instance" {
   }
 }
 
-# Load Balancer Flexible (toujours dans les limites Always Free - 10 Mbps max)
+# Load Balancer Flexible Sécurisé
 resource "oci_load_balancer_load_balancer" "lb" {
   compartment_id = var.compartment_id
-  display_name   = "always-free-lb"
+  display_name   = "always-free-secure-lb"
   shape          = "flexible"
   subnet_ids     = [oci_core_subnet.public_subnet.id]
 
@@ -170,7 +174,7 @@ resource "oci_load_balancer_backend_set" "lb_backend_set" {
 resource "oci_load_balancer_backend" "lb_backends" {
   count            = 2
   load_balancer_id = oci_load_balancer_load_balancer.lb.id
-  backend_set_name = oci_load_balancer_backend_set.lb_backend_set.name
+  backendset_name  = oci_load_balancer_backend_set.lb_backend_set.name
   ip_address       = oci_core_instance.web_instance[count.index].private_ip
   port             = 80
   backup           = false
@@ -179,9 +183,10 @@ resource "oci_load_balancer_backend" "lb_backends" {
   weight           = 1
 }
 
-resource "oci_load_balancer_listener" "lb_listener" {
+# Listener HTTP (Port 80)
+resource "oci_load_balancer_listener" "lb_listener_http" {
   load_balancer_id         = oci_load_balancer_load_balancer.lb.id
-  name                     = "web-listener"
+  name                     = "web-listener-http"
   default_backend_set_name = oci_load_balancer_backend_set.lb_backend_set.name
   protocol                 = "HTTP"
   port                     = 80

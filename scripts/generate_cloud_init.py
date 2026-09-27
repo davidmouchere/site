@@ -1,49 +1,42 @@
-#!/bin/bash
-# Script cloud-init pour la configuration initiale des instances OCI Always Free
+import base64
 
+with open("site/index.html", "r", encoding="utf-8") as f:
+    idx = f.read()
+with open("site/tarifs.html", "r", encoding="utf-8") as f:
+    tar = f.read()
+with open("site/style.css", "r", encoding="utf-8") as f:
+    css = f.read()
+with open("site/mains.jpg", "rb") as f:
+    img_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+script_content = f"""#!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
-
-# Mise à jour du système
 apt-get update && apt-get upgrade -y
-
-# Installation des dépendances de base (incluant git)
 apt-get install -y curl apt-transport-https ca-certificates gnupg lsb-release ufw fail2ban git
 
-# Configuration de Fail2ban
 systemctl enable fail2ban
 systemctl start fail2ban
 
-# Installation de Docker
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+echo \\
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \\
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# Activation et démarrage de Docker
 systemctl enable docker
 systemctl start docker
 
-# Configuration du pare-feu UFW
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow ssh
 ufw allow http
 ufw --force enable
 
-# Création du répertoire de travail de l'application
-mkdir -p /opt/projet-site
+mkdir -p /opt/projet-site/site
 
-# Clonage automatique du dépôt contenant le site web dans /opt/projet-site
-# (Le dépôt étant public ou accessible, le clone récupère directement le dossier site/)
-git clone https://github.com/davidmouchere/site.git /opt/projet-site/repo-temp
-cp -r /opt/projet-site/repo-temp/site /opt/projet-site/site
-rm -rf /opt/projet-site/repo-temp
-
-# Écriture du fichier docker-compose.yml
 cat << 'EOF' > /opt/projet-site/docker-compose.yml
 version: '3.8'
 
@@ -83,11 +76,23 @@ networks:
     driver: bridge
 EOF
 
-# Lancement de l'application Docker Compose
+cat << 'EOF' > /opt/projet-site/site/index.html
+{idx}
+EOF
+
+cat << 'EOF' > /opt/projet-site/site/tarifs.html
+{tar}
+EOF
+
+cat << 'EOF' > /opt/projet-site/site/style.css
+{css}
+EOF
+
+echo "{img_b64}" | base64 -d > /opt/projet-site/site/mains.jpg
+
 cd /opt/projet-site
 docker compose up -d
 
-# Installation du script de stress CPU et configuration du crontab (Dimanche à 4h00 du matin)
 cat << 'EOF' > /opt/projet-site/stress_cpu.sh
 #!/bin/bash
 DURATION=60
@@ -109,8 +114,10 @@ fi
 EOF
 
 chmod +x /opt/projet-site/stress_cpu.sh
+(crontab -l 2>/dev/null; echo "0 4 * * 0 /opt/projet-site/stress_cpu.sh >> /var/log/stress_cpu.log 2>&1") | crontab -
+echo "Cloud-init terminé."
+"""
 
-# Ajout de la tâche cron pour le dimanche à 04:00 AM
-(crontad -l 2>/dev/null; echo "0 4 * * 0 /opt/projet-site/stress_cpu.sh >> /var/log/stress_cpu.log 2>&1") | crontab -
-
-echo "Configuration cloud-init et clonage du site terminés avec succès."
+with open("scripts/cloud-init.sh", "w", encoding="utf-8") as f:
+    f.write(script_content)
+print("Génération réussie.")

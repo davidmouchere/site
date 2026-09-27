@@ -1,7 +1,5 @@
-tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaa...example"
-user_ocid        = "ocid1.user.oc1..aaaaaaa...example"
-fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
-private_key_path = "~/.oci/oci_api_key.pem"
-region           = "eu-frankfurt-1"
-compartment_id   = "ocid1.compartment.oc1..aaaaaaa...example"
-ssh_public_key   = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... example@local"
+user=ocid1.user.oc1..aaaaaaaa4h5dsinpwtymymlf454n6jedk3ti5fseq2kcryp4ye2ibznbgw3a
+fingerprint=be:6e:93:68:ef:49:bb:bf:de:25:53:6f:fe:ee:82:ec
+tenancy=ocid1.tenancy.oc1..aaaaaaaavrkmdu7m66qqyxkkx6j2j3m5g6jxatjczrs44jxacu7hnwgqo7sa
+region=eu-marseille-1
+key_file=~/.oci/david.mouchere@free.fr-2026-09-27T13_48_24.860Z.pem

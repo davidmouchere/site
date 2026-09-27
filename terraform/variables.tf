@@ -27,6 +27,7 @@ variable "region" {
 variable "compartment_id" {
   description = "OCID du compartiment OCI"
   type        = string
+  default     = "ocid1.tenancy.oc1..xxxxxx"
 }
 
 variable "ssh_public_key" {
