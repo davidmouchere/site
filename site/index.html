@@ -13,7 +13,7 @@
             --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); --transition: all 0.3s ease;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; color: var(--text-dark); background-color: var(--bg-light); line-height: 1.6; }
+        body { font-family: 'Inter', sans-serif; color: var(--text-dark); background-color: var(--bg-light); line-height: 1.6; padding-bottom: 60px; }
         header { background: var(--white); box-shadow: var(--shadow); position: fixed; width: 100%; top: 0; z-index: 1000; }
         .nav-container { max-width: 1200px; margin: 0 auto; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
         .logo { font-weight: 700; font-size: 1.35rem; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 0.75rem; }
@@ -56,7 +56,43 @@
         .zone-box li i { color: var(--secondary); font-size: 0.8rem; }
         footer { background: #0f172a; color: var(--white); padding: 3rem 2rem; text-align: center; margin-top: 4rem; }
         footer p { color: #94a3b8; }
-        @media (max-width: 768px) { .nav-links { display: none; } .hero h1 { font-size: 2.25rem; } .tax-banner { flex-direction: column; text-align: center; } .zone-header { flex-direction: column; text-align: center; } }
+        
+        /* Barre de navigation mobile fixe en bas */
+        .mobile-bottom-nav { display: none; }
+
+        @media (max-width: 768px) { 
+            .nav-links { display: none; } 
+            .hero h1 { font-size: 2.25rem; } 
+            .tax-banner { flex-direction: column; text-align: center; } 
+            .zone-header { flex-direction: column; text-align: center; } 
+            
+            .mobile-bottom-nav {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                background: var(--white);
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+                justify-content: space-around;
+                padding: 0.5rem 0;
+                z-index: 1000;
+            }
+            .mobile-bottom-nav a {
+                text-decoration: none;
+                color: var(--text-dark);
+                font-size: 0.75rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.25krem;
+                font-weight: 500;
+            }
+            .mobile-bottom-nav a i {
+                font-size: 1.25rem;
+                color: var(--primary);
+            }
+        }
     </style>
 </head>
 <body>
@@ -139,5 +175,13 @@
             <p style="font-size: 0.9rem;">&copy; 2026 Mme Elodie Mouchère. Tous droits réservés.</p>
         </div>
     </footer>
+
+    <!-- Barre de navigation mobile -->
+    <nav class="mobile-bottom-nav">
+        <a href="#accueil"><i class="fa-solid fa-house"></i>Accueil</a>
+        <a href="#services"><i class="fa-solid fa-list-check"></i>Services</a>
+        <a href="tarifs.html"><i class="fa-solid fa-tags"></i>Tarifs</a>
+        <a href="#zone"><i class="fa-solid fa-map-location-dot"></i>Zone</a>
+    </nav>
 </body>
 </html>
