@@ -77,12 +77,12 @@ resource "oci_core_security_list" "public_sl" {
 
   ingress_security_rules {
     protocol = "6" # TCP
-    source   = "0.0.0.0/0"
+    source   = var.admin_ssh_cidr
     tcp_options {
       min = 22
       max = 22
     }
-    description = "SSH Administration"
+    description = "SSH Administration restreinte"
   }
 
   ingress_security_rules {

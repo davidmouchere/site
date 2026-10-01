@@ -19,18 +19,35 @@ variable "private_key_path" {
 }
 
 variable "region" {
-  description = "Région OCI cible (ex: eu-frankfurt-1)"
+  description = "Région OCI cible (ex: eu-marseille-1)"
   type        = string
-  default     = "eu-frankfurt-1"
+  default     = "eu-marseille-1"
 }
 
 variable "compartment_id" {
   description = "OCID du compartiment OCI"
   type        = string
-  default     = "ocid1.tenancy.oc1..xxxxxx"
 }
 
 variable "ssh_public_key" {
   description = "Clé publique SSH pour la connexion aux instances"
   type        = string
+}
+
+variable "admin_ssh_cidr" {
+  description = "Adresse IP ou bloc CIDR autorisé pour la connexion SSH (ex: votre_ip/32 ou 0.0.0.0/0)"
+  type        = string
+  default     = "0.0.0.0/0"
+}
+
+variable "domain_name" {
+  description = "Nom de domaine ou sous-domaine (laisser vide si non configuré)"
+  type        = string
+  default     = ""
+}
+
+variable "letsencrypt_email" {
+  description = "Email pour l'enregistrement du certificat Let's Encrypt (laisser vide si non configuré)"
+  type        = string
+  default     = ""
 }

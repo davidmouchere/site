@@ -1,5 +1,12 @@
-user=ocid1.user.oc1..aaaaaaaa4h5dsinpwtymymlf454n6jedk3ti5fseq2kcryp4ye2ibznbgw3a
-fingerprint=be:6e:93:68:ef:49:bb:bf:de:25:53:6f:fe:ee:82:ec
-tenancy=ocid1.tenancy.oc1..aaaaaaaavrkmdu7m66qqyxkkx6j2j3m5g6jxatjczrs44jxacu7hnwgqo7sa
-region=eu-marseille-1
-key_file=~/.oci/david.mouchere@free.fr-2026-09-27T13_48_24.860Z.pem
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "/home/david/.oci/key.pem"
+region           = "eu-marseille-1"
+compartment_id   = "ocid1.tenancy.oc1..xxxxxx"
+ssh_public_key   = "ssh-ed25519 AAAAC3..."
+admin_ssh_cidr   = "0.0.0.0/0" # À remplacer par votre IP publique (ex: 203.0.113.50/32)
+
+# Options futures (laisser vide pour l'instant tant que vous n'avez pas de domaine)
+domain_name       = ""
+letsencrypt_email = ""
