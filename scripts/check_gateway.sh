@@ -18,12 +18,12 @@ while true; do
         cd "$TERRAFORM_DIR" || exit 1
         terraform apply -auto-approve
         
-        echo "[$(date)] Terraform apply terminé. Nouvelle tentative dans 10 minutes..."
+        echo "[$(date)] Terraform apply terminé. Nouvelle tentative dans 30 secondes..."
     else
         echo "[$(date)] Le site répond correctement (HTTP $HTTP_STATUS). Arrêt du script."
         break
     fi
     
-    # Attente de 10 minutes (600 secondes) avant la prochaine vérification
-    sleep 600
+    # Attente de 30 secondes avant la prochaine vérification
+    sleep 30
 done
