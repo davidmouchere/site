@@ -1,17 +1,26 @@
 #!/bin/bash
-# Script cloud-init pour la configuration initiale des instances OCI Always Free
-
 export DEBIAN_FRONTEND=noninteractive
-
-# Mise à jour du système
 apt-get update && apt-get upgrade -y
+apt-get install -y curl apt-transport-https ca-certificates gnupg lsb-release ufw fail2ban git unattended-upgrades certbot python3-certbot-dns-duckdns
+dpkg-reconfigure -f noninteractive unattended-upgrades
 
-# Installation des dépendances de base (incluant git)
-apt-get install -y curl apt-transport-https ca-certificates gnupg lsb-release ufw fail2ban git
+HOSTNAME=$(hostname)
+if [[ "$HOSTNAME" == *"1"* ]]; then
+    REBOOT_TIME="03:00"
+else
+    REBOOT_TIME="03:30"
+fi
 
-# Configuration de Fail2ban
-systemctl enable fail2ban
-systemctl start fail2ban
+# Configuration unattended-upgrades
+cat << 'EOF' > /etc/apt/apt.conf.d/50unattended-upgrades-custom
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}-security";
+};
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "$REBOOT_TIME";
+EOF
+
+systemctl enable fail2ban && systemctl start fail2ban
 
 # Installation de Docker
 mkdir -p /etc/apt/keyrings
@@ -22,28 +31,81 @@ echo \
 
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable docker && systemctl start docker
 
-# Activation et démarrage de Docker
-systemctl enable docker
-systemctl start docker
-
-# Configuration du pare-feu UFW
+# Configuration UFW
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow ssh
 ufw allow http
+ufw allow https
 ufw --force enable
 
-# Création du répertoire de travail de l'application
-mkdir -p /opt/projet-site
+mkdir -p /opt/projet-site/site /opt/projet-site/nginx
 
-# Clonage automatique du dépôt contenant le site web dans /opt/projet-site
-# (Le dépôt étant public ou accessible, le clone récupère directement le dossier site/)
+# Clonage du site
 git clone https://github.com/davidmouchere/site.git /opt/projet-site/repo-temp
-cp -r /opt/projet-site/repo-temp/site /opt/projet-site/site
+if [ -d "/opt/projet-site/repo-temp/site" ]; then
+    rm -rf /opt/projet-site/site/*
+    cp -r /opt/projet-site/repo-temp/site/* /opt/projet-site/site/
+else
+    rm -rf /opt/projet-site/site/*
+    cp -r /opt/projet-site/repo-temp/* /opt/projet-site/site/
+fi
 rm -rf /opt/projet-site/repo-temp
 
-# Écriture du fichier docker-compose.yml
+# --- CONFIGURATION DUCKDNS ---
+DUCKDNS_DOMAIN="testsiteem"
+DUCKDNS_TOKEN="@@DUCKDNS_TOKEN@@"
+
+mkdir -p /root/.secrets
+cat << EOF > /root/.secrets/duckdns.ini
+dns_duckdns_token = $DUCKDNS_TOKEN
+EOF
+chmod 600 /root/.secrets/duckdns.ini
+
+# Génération du certificat via le défi DNS DuckDNS
+certbot certonly \
+  --dns-duckdns \
+  --dns-duckdns-credentials /root/.secrets/duckdns.ini \
+  --dns-duckdns-propagation-seconds 60 \
+  --agree-tos \
+  --register-unsafely-without-email \
+  -d "$${DUCKDNS_DOMAIN}.duckdns.org" \
+  --non-interactive || true
+
+# 1. Configuration Nginx définitive
+cat << 'EOF' > /opt/projet-site/nginx/default.conf
+server {
+    listen 80;
+    server_name testsiteem.duckdns.org;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name testsiteem.duckdns.org;
+
+    ssl_certificate /etc/letsencrypt/live/testsiteem.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/testsiteem.duckdns.org/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://web_app:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+EOF
+
+# 2. Docker-compose définitif
 cat << 'EOF' > /opt/projet-site/docker-compose.yml
 version: '3.8'
 
@@ -52,10 +114,24 @@ services:
     image: nginx:alpine
     container_name: web_app
     restart: always
-    ports:
-      - "80:80"
     volumes:
       - ./site:/usr/share/nginx/html:ro
+    networks:
+      - webnet
+
+  reverse-proxy:
+    image: nginx:alpine
+    container_name: reverse_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./site:/usr/share/nginx/html:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - web
     networks:
       - webnet
 
@@ -83,11 +159,14 @@ networks:
     driver: bridge
 EOF
 
-# Lancement de l'application Docker Compose
 cd /opt/projet-site
+docker compose down
 docker compose up -d
 
-# Installation du script de stress CPU et configuration du crontab (Dimanche à 4h00 du matin)
+# Tâche cron pour le renouvellement
+(crontab -l 2>/dev/null; echo "0 4 * * * certbot renew --dns-duckdns --dns-duckdns-credentials /root/.secrets/duckdns.ini --quiet && docker compose -f /opt/projet-site/docker-compose.yml restart reverse-proxy") | crontab -
+
+# Script stress CPU
 cat << 'EOF' > /opt/projet-site/stress_cpu.sh
 #!/bin/bash
 DURATION=60
@@ -109,8 +188,4 @@ fi
 EOF
 
 chmod +x /opt/projet-site/stress_cpu.sh
-
-# Ajout de la tâche cron pour le dimanche à 04:00 AM
-(crontad -l 2>/dev/null; echo "0 4 * * 0 /opt/projet-site/stress_cpu.sh >> /var/log/stress_cpu.log 2>&1") | crontab -
-
-echo "Configuration cloud-init et clonage du site terminés avec succès."
+(crontab -l 2>/dev/null; echo "0 4 * * 0 /opt/projet-site/stress_cpu.sh >> /var/log/stress_cpu.log 2>&1") | crontab -

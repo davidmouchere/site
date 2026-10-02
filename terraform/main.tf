@@ -138,7 +138,7 @@ resource "oci_core_instance" "web_instance" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data           = base64encode(file("../scripts/cloud-init.sh"))
+    user_data           = base64encode(replace(file("../scripts/cloud-init.sh"), "@@DUCKDNS_TOKEN@@", var.duckdns_token))
   }
 }
 
@@ -155,8 +155,9 @@ resource "oci_load_balancer_load_balancer" "lb" {
   }
 }
 
-resource "oci_load_balancer_backend_set" "lb_backend_set" {
-  name             = "web-backend-set"
+# Backend Set HTTP (Port 80 pour HTTP)
+resource "oci_load_balancer_backend_set" "lb_backend_set_http" {
+  name             = "web-backend-set-http"
   load_balancer_id = oci_load_balancer_load_balancer.lb.id
   policy           = "ROUND_ROBIN"
 
@@ -171,10 +172,10 @@ resource "oci_load_balancer_backend_set" "lb_backend_set" {
   }
 }
 
-resource "oci_load_balancer_backend" "lb_backends" {
+resource "oci_load_balancer_backend" "lb_backends_http" {
   count            = 2
   load_balancer_id = oci_load_balancer_load_balancer.lb.id
-  backendset_name  = oci_load_balancer_backend_set.lb_backend_set.name
+  backendset_name  = oci_load_balancer_backend_set.lb_backend_set_http.name
   ip_address       = oci_core_instance.web_instance[count.index].private_ip
   port             = 80
   backup           = false
@@ -187,7 +188,43 @@ resource "oci_load_balancer_backend" "lb_backends" {
 resource "oci_load_balancer_listener" "lb_listener_http" {
   load_balancer_id         = oci_load_balancer_load_balancer.lb.id
   name                     = "web-listener-http"
-  default_backend_set_name = oci_load_balancer_backend_set.lb_backend_set.name
+  default_backend_set_name = oci_load_balancer_backend_set.lb_backend_set_http.name
   protocol                 = "HTTP"
   port                     = 80
+}
+
+# Backend Set TCP (Port 443 pour HTTPS Passthrough)
+resource "oci_load_balancer_backend_set" "lb_backend_set_tcp" {
+  name             = "web-backend-set-tcp"
+  load_balancer_id = oci_load_balancer_load_balancer.lb.id
+  policy           = "ROUND_ROBIN"
+
+  health_checker {
+    protocol            = "TCP"
+    port                = 443
+    interval_ms         = 10000
+    timeout_in_millis   = 3000
+    retries             = 3
+  }
+}
+
+resource "oci_load_balancer_backend" "lb_backends_tcp" {
+  count            = 2
+  load_balancer_id = oci_load_balancer_load_balancer.lb.id
+  backendset_name  = oci_load_balancer_backend_set.lb_backend_set_tcp.name
+  ip_address       = oci_core_instance.web_instance[count.index].private_ip
+  port             = 443
+  backup           = false
+  drain            = false
+  offline          = false
+  weight           = 1
+}
+
+# Listener TCP (Port 443 - Passthrough HTTPS)
+resource "oci_load_balancer_listener" "lb_listener_tcp" {
+  load_balancer_id         = oci_load_balancer_load_balancer.lb.id
+  name                     = "web-listener-tcp"
+  default_backend_set_name = oci_load_balancer_backend_set.lb_backend_set_tcp.name
+  protocol                 = "TCP"
+  port                     = 443
 }
