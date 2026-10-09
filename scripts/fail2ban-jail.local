@@ -1,0 +1,23 @@
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 3
+ignoreip = 127.0.0.1/8 ::1 192.168.1.0/24 192.168.27.0/24 82.67.129.161
+
+[sshd]
+enabled = true
+port = ssh
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+maxretry = 3
+
+[nginx-http-auth]
+enabled = true
+port = http,https
+logpath = %(nginx_error_log)s
+
+[nginx-botsearch]
+enabled = true
+port = http,https
+logpath = %(nginx_error_log)s
+maxretry = 2

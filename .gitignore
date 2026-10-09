@@ -17,4 +17,6 @@ encrypted_key.txt
 # Logs & Secrets
 *.log
 .env
-gemini-config.json 
+gemini-config.json
+secret.*
+*.secret
