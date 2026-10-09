@@ -16,12 +16,10 @@ provider "oci" {
   region           = var.region
 }
 
-# Récupération de la liste des Availability Domains
 data "oci_identity_availability_domains" "ads" {
   compartment_id = var.tenancy_ocid
 }
 
-# Récupération de l'image Ubuntu ARM Always Free la plus récente
 data "oci_core_images" "ubuntu_arm" {
   compartment_id           = var.tenancy_ocid
   operating_system         = "Canonical Ubuntu"
@@ -31,60 +29,46 @@ data "oci_core_images" "ubuntu_arm" {
   sort_order               = "DESC"
 }
 
-# VCN (Virtual Cloud Network)
 resource "oci_core_vcn" "main_vcn" {
   compartment_id = var.compartment_id
   cidr_block     = "10.0.0.0/16"
   display_name   = "always-free-vcn"
-  dns_label      = "freevcn"
 }
 
-# Internet Gateway
 resource "oci_core_internet_gateway" "main_igw" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main_vcn.id
-  display_name   = "always-free-igw"
 }
 
-# Route Table
 resource "oci_core_route_table" "main_rt" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main_vcn.id
-  display_name   = "always-free-rt"
-
   route_rules {
     destination       = "0.0.0.0/0"
     network_entity_id = oci_core_internet_gateway.main_igw.id
   }
 }
 
-# Subnet Public
 resource "oci_core_subnet" "public_subnet" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main_vcn.id
   cidr_block     = "10.0.1.0/24"
-  display_name   = "always-free-public-subnet"
-  dns_label      = "subnet"
   route_table_id = oci_core_route_table.main_rt.id
   security_list_ids = [oci_core_security_list.public_sl.id]
 }
 
-# Security List Sécurisée (Principe du moindre privilège)
 resource "oci_core_security_list" "public_sl" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.main_vcn.id
-  display_name   = "always-free-sl"
-
+  
   ingress_security_rules {
-    protocol = "6" # TCP
-    source   = var.admin_ssh_cidr
+    protocol = "6"
+    source   = "0.0.0.0/0"
     tcp_options {
       min = 22
       max = 22
     }
-    description = "SSH Administration restreinte"
   }
-
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
@@ -92,9 +76,7 @@ resource "oci_core_security_list" "public_sl" {
       min = 80
       max = 80
     }
-    description = "HTTP Web Traffic"
   }
-
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
@@ -102,22 +84,17 @@ resource "oci_core_security_list" "public_sl" {
       min = 443
       max = 443
     }
-    description = "HTTPS Web Traffic"
   }
-
   egress_security_rules {
     protocol    = "all"
     destination = "0.0.0.0/0"
-    description = "Allow all outbound traffic for updates and dependencies"
   }
 }
 
-# Instances Compute ARM (2 instances - 1 OCPU et 6 Go de RAM chacune pour respecter les quotas Always Free totaux de 2 OCPU / 12 Go)
 resource "oci_core_instance" "web_instance" {
-  count               = 2
   compartment_id      = var.compartment_id
-  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[count.index % length(data.oci_identity_availability_domains.ads.availability_domains)].name
-  display_name        = "web-server-${count.index + 1}"
+  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  display_name        = "web-server-1"
   shape               = "VM.Standard.A1.Flex"
 
   shape_config {
@@ -138,93 +115,11 @@ resource "oci_core_instance" "web_instance" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data           = base64encode(replace(file("../scripts/cloud-init.sh"), "@@DUCKDNS_TOKEN@@", var.duckdns_token))
+    user_data = base64encode(
+      replace(
+        replace(file("${path.module}/../scripts/cloud-init.sh"), "@@DUCKDNS_TOKEN@@", var.duckdns_token),
+        "@@DOMAIN_NAME@@", var.domain_name
+      )
+    )
   }
-}
-
-# Load Balancer Flexible Sécurisé
-resource "oci_load_balancer_load_balancer" "lb" {
-  compartment_id = var.compartment_id
-  display_name   = "always-free-secure-lb"
-  shape          = "flexible"
-  subnet_ids     = [oci_core_subnet.public_subnet.id]
-
-  shape_details {
-    maximum_bandwidth_in_mbps = 10
-    minimum_bandwidth_in_mbps = 10
-  }
-}
-
-# Backend Set HTTP (Port 80 pour HTTP)
-resource "oci_load_balancer_backend_set" "lb_backend_set_http" {
-  name             = "web-backend-set-http"
-  load_balancer_id = oci_load_balancer_load_balancer.lb.id
-  policy           = "ROUND_ROBIN"
-
-  health_checker {
-    protocol            = "HTTP"
-    port                = 80
-    url_path            = "/"
-    return_code         = 200
-    interval_ms         = 10000
-    timeout_in_millis   = 3000
-    retries             = 3
-  }
-}
-
-resource "oci_load_balancer_backend" "lb_backends_http" {
-  count            = 2
-  load_balancer_id = oci_load_balancer_load_balancer.lb.id
-  backendset_name  = oci_load_balancer_backend_set.lb_backend_set_http.name
-  ip_address       = oci_core_instance.web_instance[count.index].private_ip
-  port             = 80
-  backup           = false
-  drain            = false
-  offline          = false
-  weight           = 1
-}
-
-# Listener HTTP (Port 80)
-resource "oci_load_balancer_listener" "lb_listener_http" {
-  load_balancer_id         = oci_load_balancer_load_balancer.lb.id
-  name                     = "web-listener-http"
-  default_backend_set_name = oci_load_balancer_backend_set.lb_backend_set_http.name
-  protocol                 = "HTTP"
-  port                     = 80
-}
-
-# Backend Set TCP (Port 443 pour HTTPS Passthrough)
-resource "oci_load_balancer_backend_set" "lb_backend_set_tcp" {
-  name             = "web-backend-set-tcp"
-  load_balancer_id = oci_load_balancer_load_balancer.lb.id
-  policy           = "ROUND_ROBIN"
-
-  health_checker {
-    protocol            = "TCP"
-    port                = 443
-    interval_ms         = 10000
-    timeout_in_millis   = 3000
-    retries             = 3
-  }
-}
-
-resource "oci_load_balancer_backend" "lb_backends_tcp" {
-  count            = 2
-  load_balancer_id = oci_load_balancer_load_balancer.lb.id
-  backendset_name  = oci_load_balancer_backend_set.lb_backend_set_tcp.name
-  ip_address       = oci_core_instance.web_instance[count.index].private_ip
-  port             = 443
-  backup           = false
-  drain            = false
-  offline          = false
-  weight           = 1
-}
-
-# Listener TCP (Port 443 - Passthrough HTTPS)
-resource "oci_load_balancer_listener" "lb_listener_tcp" {
-  load_balancer_id         = oci_load_balancer_load_balancer.lb.id
-  name                     = "web-listener-tcp"
-  default_backend_set_name = oci_load_balancer_backend_set.lb_backend_set_tcp.name
-  protocol                 = "TCP"
-  port                     = 443
 }
